@@ -43,7 +43,7 @@ async function showCurrentConditions(ctx, userLocations, geocodingApiKey) {
                 location.longitude,
                 geocodingApiKey
             );
-            locationInfo = `📍 **Локація:** ${locationName}\n`;
+            locationInfo = `📍 <b>Локація:</b> ${locationName}\n`;
         }
 
         const updateTime = FormatUtils.formatTimestamp(kpData.timestamp);
@@ -76,17 +76,17 @@ async function showCurrentConditions(ctx, userLocations, geocodingApiKey) {
             else if (flux < 1e-7) solarStatus = "Низька";
         }
 
-        const conditionsMessage = `🌌 **Поточні умови космічної погоди**
+        const conditionsMessage = `🌌 <b>Поточні умови космічної погоди</b>
 🕐 Дані оновлені: ${updateTime}
 ⏰ Зараз: ${currentTime}
 ${locationInfo}
 ${sourceInfo}
-**🔸 Геомагнітна активність:**
+<b>🔸 Геомагнітна активність:</b>
 Kp-індекс: ${kpData.kp.toFixed(1)} ${kpStatus.emoji}
 Статус: ${kpStatus.status}
 ${kpStatus.description}
 
-**🔸 Магнітне поле Землі:**
+<b>🔸 Магнітне поле Землі:</b>
 Стан: ${magneticStatus}
 ${
     magnetometerData
@@ -96,11 +96,11 @@ ${
         : "Дані недоступні"
 }
 
-**🔸 Сонячна активність:**
+<b>🔸 Сонячна активність:</b>
 Рівень: ${solarStatus}
 X-ray flux: ${solarData ? "Моніториться" : "Н/Д"}
 
-**🌍 Поради для вашого регіону:**
+<b>🌍 Поради для вашого регіону:</b>
 ${getRegionalAdvice(kpStatus.level, kpData.kp, userLocations.get(userId))}`;
 
         const keyboard = Markup.inlineKeyboard([
@@ -115,7 +115,7 @@ ${getRegionalAdvice(kpStatus.level, kpData.kp, userLocations.get(userId))}`;
         ]);
 
         await ctx.deleteMessage(loadingMessage.message_id);
-        await ctx.reply(conditionsMessage, keyboard);
+        await ctx.reply(conditionsMessage, { ...keyboard, parse_mode: "HTML" });
     } catch (error) {
         log(`Помилка отримання поточних умов: ${error.message}`);
         await ctx.reply(
@@ -145,15 +145,15 @@ function getSourceInfo(kpData) {
         generated: "Згенеровано",
     };
 
-    let sourceInfo = `${sourceEmoji[kpData.source] || "📡"} **Джерело Kp:** ${
-        sourceName[kpData.source] || "Невідоме"
-    }\n`;
+    let sourceInfo = `${
+        sourceEmoji[kpData.source] || "📡"
+    } <b>Джерело Kp:</b> ${sourceName[kpData.source] || "Невідоме"}\n`;
 
     if (kpData.bothAvailable) {
-        sourceInfo += `✅ **Резервне API:** Доступне (${kpData.backupValue})\n`;
-        sourceInfo += `🔄 **Правило:** Використано більше значення\n`;
+        sourceInfo += `✅ <b>Резервне API:</b> Доступне (${kpData.backupValue})\n`;
+        sourceInfo += `🔄 <b>Правило:</b> Використано більше значення\n`;
     } else if (kpData.hasBackup === false) {
-        sourceInfo += `⚠️ **Резервне API:** ${
+        sourceInfo += `⚠️ <b>Резервне API:</b> ${
             kpData.fallbackReason || "Недоступне"
         }\n`;
     }
@@ -190,7 +190,9 @@ async function handleForecast(ctx, userLocations) {
     try {
         await ctx.reply("🔄 Завантажую прогноз з NOAA та SpaceWeatherLive...");
 
+        log("Викликаю EnhancedNOAAService.getForecast()...");
         const forecast = await EnhancedNOAAService.getForecast();
+        log(`Отримав прогноз: ${forecast ? forecast.length : 0} днів`);
 
         if (!forecast || forecast.length === 0) {
             await ctx.reply(
@@ -204,7 +206,7 @@ async function handleForecast(ctx, userLocations) {
             return;
         }
 
-        let forecastMessage = "🔮 **Прогноз космічної погоди**\n\n";
+        let forecastMessage = "🔮 <b>Прогноз космічної погоди</b>\n\n";
 
         // Визначаємо джерело та додаємо іконку
         const sourceInfo = forecast[0]?.source;
@@ -223,7 +225,7 @@ async function handleForecast(ctx, userLocations) {
         if (sourceInfo) {
             forecastMessage += `${
                 sourceEmoji[sourceInfo] || "📡"
-            } **Джерело:** ${sourceName[sourceInfo] || "Невідоме"}\n\n`;
+            } <b>Джерело:</b> ${sourceName[sourceInfo] || "Невідоме"}\n\n`;
         }
 
         forecast.forEach((day, index) => {
@@ -233,7 +235,7 @@ async function handleForecast(ctx, userLocations) {
                 day.confidence ||
                 (index === 0 ? "Висока" : index === 1 ? "Помірна" : "Низька");
 
-            forecastMessage += `📅 **${day.DateStamp}**\n`;
+            forecastMessage += `📅 <b>${day.DateStamp}</b>\n`;
             forecastMessage += `Макс. Kp: ${day.KpMax} ${status.emoji}\n`;
             forecastMessage += `Статус: ${status.status}\n`;
             forecastMessage += `Ймовірність бур: ${FormatUtils.getStormProbability(
@@ -258,24 +260,27 @@ async function handleForecast(ctx, userLocations) {
 
             if (canSeeAurora) {
                 forecastMessage +=
-                    "🌌 **Гарні новини!** Протягом наступних днів можливі полярні сяйва у вашому регіоні!\n\n";
+                    "🌌 <b>Гарні новини!</b> Протягом наступних днів можливі полярні сяйва у вашому регіоні!\n\n";
             }
         }
 
         // Інформація про надійність даних
         if (sourceInfo === "noaa") {
-            forecastMessage += "✅ **Надійність:** Висока (основне джерело)\n";
+            forecastMessage +=
+                "✅ <b>Надійність:</b> Висока (основне джерело)\n";
         } else if (sourceInfo === "spaceweatherlive") {
             forecastMessage +=
-                "🔄 **Надійність:** Помірна (резервне джерело)\n";
-            forecastMessage += "💡 **Примітка:** NOAA тимчасово недоступний\n";
+                "🔄 <b>Надійність:</b> Помірна (резервне джерело)\n";
+            forecastMessage +=
+                "💡 <b>Примітка:</b> NOAA тимчасово недоступний\n";
         } else if (sourceInfo === "generated") {
-            forecastMessage += "⚠️ **Надійність:** Орієнтовна (згенеровано)\n";
-            forecastMessage += "🔧 **Примітка:** Всі API недоступні\n";
+            forecastMessage +=
+                "⚠️ <b>Надійність:</b> Орієнтовна (згенеровано)\n";
+            forecastMessage += "🔧 <b>Примітка:</b> Всі API недоступні\n";
         }
 
-        forecastMessage += "🔄 **Оновлення:** двічі на день\n";
-        forecastMessage += "⚡ **Деталі:** /current - поточні умови";
+        forecastMessage += "🔄 <b>Оновлення:</b> двічі на день\n";
+        forecastMessage += "⚡ <b>Деталі:</b> /current - поточні умови";
 
         const keyboard = Markup.inlineKeyboard([
             [
@@ -288,7 +293,7 @@ async function handleForecast(ctx, userLocations) {
             ],
         ]);
 
-        await ctx.reply(forecastMessage, keyboard);
+        await ctx.reply(forecastMessage, { ...keyboard, parse_mode: "HTML" });
     } catch (error) {
         log(`Помилка прогнозу: ${error.message}`);
         await ctx.reply(
@@ -312,11 +317,14 @@ async function handleAurora(ctx, userLocations, geocodingApiKey) {
 
     if (!userLocation) {
         await ctx.reply(
-            "📍 **Спершу надішліть свою локацію**\n\n" +
+            "📍 <b>Спершу надішліть свою локацію</b>\n\n" +
                 "Для прогнозу полярних сяйв потрібно знати ваше розташування.",
-            Markup.keyboard([
-                [Markup.button.locationRequest("📍 Поділитися локацією")],
-            ]).resize()
+            {
+                ...Markup.keyboard([
+                    [Markup.button.locationRequest("📍 Поділитися локацією")],
+                ]).resize(),
+                parse_mode: "HTML",
+            }
         );
         return;
     }
@@ -353,12 +361,12 @@ async function handleAurora(ctx, userLocations, geocodingApiKey) {
         );
         const bestTime = getBestAuroraTime(latitude);
 
-        let auroraMessage = `🌌 **Прогноз полярних сяйв**\n\n`;
-        auroraMessage += `📍 **Локація:** ${locationName}\n`;
-        auroraMessage += `🧭 **Координати:** ${latitude.toFixed(
+        let auroraMessage = `🌌 <b>Прогноз полярних сяйв</b>\n\n`;
+        auroraMessage += `📍 <b>Локація:</b> ${locationName}\n`;
+        auroraMessage += `🧭 <b>Координати:</b> ${latitude.toFixed(
             4
         )}°, ${longitude.toFixed(4)}°\n`;
-        auroraMessage += `🧲 **Магнітна широта:** ${magneticLat.toFixed(
+        auroraMessage += `🧲 <b>Магнітна широта:</b> ${magneticLat.toFixed(
             1
         )}°\n\n`;
 
@@ -371,37 +379,37 @@ async function handleAurora(ctx, userLocations, geocodingApiKey) {
         };
         auroraMessage += `${
             sourceEmoji[kpData.source] || "📡"
-        } **Джерело Kp:** ${sourceName[kpData.source] || "Невідоме"}\n`;
+        } <b>Джерело Kp:</b> ${sourceName[kpData.source] || "Невідоме"}\n`;
 
         if (kpData.bothAvailable) {
-            auroraMessage += `🔄 **Резерв:** ${kpData.backupValue} (використано більше)\n`;
+            auroraMessage += `🔄 <b>Резерв:</b> ${kpData.backupValue} (використано більше)\n`;
         }
 
-        auroraMessage += `**🔸 Поточні умови:**\n`;
+        auroraMessage += `<b>🔸 Поточні умови:</b>\n`;
         auroraMessage += `Kp-індекс: ${kpData.kp.toFixed(1)}\n`;
         auroraMessage += `Границя авроральному овала: ${auroralBoundary.toFixed(
             1
         )}° маг. широти\n\n`;
 
         if (canSeeAurora) {
-            auroraMessage += `✅ **Полярні сяйва МОЖЛИВІ!**\n`;
+            auroraMessage += `✅ <b>Полярні сяйва МОЖЛИВІ!</b>\n`;
             auroraMessage += `🎯 Ви знаходитесь в зоні видимості\n`;
             auroraMessage += `📏 Відстань до центра овала: ${distanceToAurora.toFixed(
                 1
             )}°\n\n`;
-            auroraMessage += `**🕐 Найкращий час спостереження:**\n${bestTime}\n\n`;
-            auroraMessage += `**👀 Поради по спостереженню:**\n`;
+            auroraMessage += `<b>🕐 Найкращий час спостереження:</b>\n${bestTime}\n\n`;
+            auroraMessage += `<b>👀 Поради по спостереженню:</b>\n`;
             auroraMessage += `• Дивіться на північ\n`;
             auroraMessage += `• Уникайте світлового забруднення\n`;
             auroraMessage += `• Чекайте темного неба\n`;
             auroraMessage += `• Будьте терплячими - активність змінюється\n\n`;
         } else {
-            auroraMessage += `❌ **Полярні сяйва МАЛОЙМОВІРНІ**\n`;
+            auroraMessage += `❌ <b>Полярні сяйва МАЛОЙМОВІРНІ</b>\n`;
             auroraMessage += `📏 Ви знаходитесь на ${distanceToAurora.toFixed(
                 1
             )}° південніше зони видимості\n\n`;
             const requiredKp = Math.ceil((67 - Math.abs(magneticLat)) / 2);
-            auroraMessage += `**📈 Для видимості потрібно:**\n`;
+            auroraMessage += `<b>📈 Для видимості потрібно:</b>\n`;
             auroraMessage += `Kp ≥ ${requiredKp} (зараз ${kpData.kp.toFixed(
                 1
             )})\n\n`;
@@ -420,7 +428,7 @@ async function handleAurora(ctx, userLocations, geocodingApiKey) {
             ],
         ]);
 
-        await ctx.reply(auroraMessage, keyboard);
+        await ctx.reply(auroraMessage, { ...keyboard, parse_mode: "HTML" });
     } catch (error) {
         log(`Помилка aurora команди: ${error.message}`);
         await ctx.reply(
@@ -436,14 +444,15 @@ async function handleAlerts(ctx) {
 
         if (!alerts || alerts.length === 0) {
             await ctx.reply(
-                "✅ **Активних попереджень немає**\n\n" +
+                "✅ <b>Активних попереджень немає</b>\n\n" +
                     "Космічна погода спокійна. Ми сповістимо вас про будь-які зміни.\n\n" +
-                    "🔔 Увімкніть сповіщення: /settings"
+                    "🔔 Увімкніть сповіщення: /settings",
+                { parse_mode: "HTML" }
             );
             return;
         }
 
-        let alertsMessage = "⚠️ **Активні попередження:**\n\n";
+        let alertsMessage = "⚠️ <b>Активні попередження:</b>\n\n";
 
         alerts.slice(0, 5).forEach((alert, index) => {
             const type = alert.message_type || "Попередження";
@@ -451,7 +460,7 @@ async function handleAlerts(ctx) {
             const message = (alert.message || "").substring(0, 150);
             const source = alert.source ? `(${alert.source})` : "";
 
-            alertsMessage += `🚨 **${type}** ${source}\n`;
+            alertsMessage += `🚨 <b>${type}</b> ${source}\n`;
             alertsMessage += `🕐 ${time}\n`;
             alertsMessage += `📝 ${message}...\n\n`;
         });
@@ -459,7 +468,7 @@ async function handleAlerts(ctx) {
         alertsMessage +=
             "📡 Джерело: Комбіновані дані NOAA та SpaceWeatherLive";
 
-        await ctx.reply(alertsMessage);
+        await ctx.reply(alertsMessage, { parse_mode: "HTML" });
     } catch (error) {
         log(`Помилка попереджень: ${error.message}`);
         await ctx.reply("❌ Помилка отримання попереджень. Спробуйте пізніше.");
@@ -473,17 +482,17 @@ async function handleApiStatus(ctx) {
 
         const apiStatus = await EnhancedNOAAService.getApiStatus();
 
-        let statusMessage = "🛰️ **Статус джерел даних**\n\n";
+        let statusMessage = "🛰️ <b>Статус джерел даних</b>\n\n";
 
         // NOAA статус
         if (apiStatus.noaa.available) {
-            statusMessage += "🟢 **NOAA SWPC:** Доступний\n";
+            statusMessage += "🟢 <b>NOAA SWPC:</b> Доступний\n";
             statusMessage += "📡 Основне джерело космічної погоди\n";
             if (apiStatus.noaa.data) {
                 statusMessage += `🔸 Поточний Kp: ${apiStatus.noaa.data.kp}\n\n`;
             }
         } else {
-            statusMessage += "🔴 **NOAA SWPC:** Недоступний\n";
+            statusMessage += "🔴 <b>NOAA SWPC:</b> Недоступний\n";
             statusMessage += `❌ ${
                 apiStatus.noaa.error || "Помилка з'єднання"
             }\n\n`;
@@ -491,13 +500,13 @@ async function handleApiStatus(ctx) {
 
         // GFZ Potsdam статус
         if (apiStatus.gfz.available) {
-            statusMessage += "🟢 **GFZ Potsdam:** Доступний\n";
+            statusMessage += "🟢 <b>GFZ Potsdam:</b> Доступний\n";
             statusMessage += "🇩🇪 Німецька геофізична служба (резерв)\n";
             if (apiStatus.gfz.data) {
                 statusMessage += `🔸 Поточний Kp: ${apiStatus.gfz.data.kp}\n\n`;
             }
         } else {
-            statusMessage += "🔴 **GFZ Potsdam:** Недоступний\n";
+            statusMessage += "🔴 <b>GFZ Potsdam:</b> Недоступний\n";
             statusMessage += `❌ ${
                 apiStatus.gfz.error || "Резервне джерело недоступне"
             }\n\n`;
@@ -508,7 +517,7 @@ async function handleApiStatus(ctx) {
         const oneWorks = apiStatus.noaa.available || apiStatus.gfz.available;
 
         if (bothWork) {
-            statusMessage += "✅ **Загальний статус:** Відмінний\n";
+            statusMessage += "✅ <b>Загальний статус:</b> Відмінний\n";
             statusMessage += "🔄 Використовується правило максимального Kp\n";
 
             // Показуємо яке значення буде вибрано
@@ -518,19 +527,19 @@ async function handleApiStatus(ctx) {
                 const selectedKp = Math.max(noaaKp, gfzKp);
                 const selectedSource =
                     noaaKp >= gfzKp ? "NOAA SWPC" : "GFZ Potsdam";
-                statusMessage += `🎯 **Вибрано:** ${selectedSource} (Kp=${selectedKp})\n`;
+                statusMessage += `🎯 <b>Вибрано:</b> ${selectedSource} (Kp=${selectedKp})\n`;
             }
         } else if (oneWorks) {
-            statusMessage += "🟡 **Загальний статус:** Частково працює\n";
+            statusMessage += "🟡 <b>Загальний статус:</b> Частково працює\n";
             statusMessage += "⚠️ Одне джерело недоступне, працює резерв\n";
         } else {
             statusMessage +=
-                "🔴 **Загальний статус:** Всі джерела недоступні\n";
+                "🔴 <b>Загальний статус:</b> Всі джерела недоступні\n";
             statusMessage += "🔧 Використовуватиметься згенерований прогноз\n";
         }
 
-        statusMessage += `\n📝 **Примітка:** SpaceWeatherLive замінено на GFZ Potsdam через блокування API\n`;
-        statusMessage += `🕐 **Перевірено:** ${new Date().toLocaleTimeString(
+        statusMessage += `\n📝 <b>Примітка:</b> SpaceWeatherLive замінено на GFZ Potsdam через блокування API\n`;
+        statusMessage += `🕐 <b>Перевірено:</b> ${new Date().toLocaleTimeString(
             "uk-UA",
             {
                 timeZone: "Europe/Kiev",
@@ -549,7 +558,7 @@ async function handleApiStatus(ctx) {
             ],
         ]);
 
-        await ctx.reply(statusMessage, keyboard);
+        await ctx.reply(statusMessage, { ...keyboard, parse_mode: "HTML" });
     } catch (error) {
         log(`Помилка перевірки статусу API: ${error.message}`);
         await ctx.reply("❌ Помилка перевірки статусу API");

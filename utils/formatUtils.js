@@ -67,10 +67,10 @@ class FormatUtils {
     }
 
     static getStormProbability(kp) {
-        if (kp < 5) return "Низька (<25%)";
+        if (kp < 5) return "Низька (&lt;25%)";
         if (kp < 7) return "Помірна (25-50%)";
         if (kp < 8) return "Висока (50-75%)";
-        return "Дуже висока (>75%)";
+        return "Дуже висока (&gt;75%)";
     }
 }
 

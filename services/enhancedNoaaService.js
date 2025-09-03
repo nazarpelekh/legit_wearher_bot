@@ -1,7 +1,7 @@
 const axios = require("axios");
 
 const NOAA_BASE_URL = "https://services.swpc.noaa.gov";
-const GFZ_BASE_URL = "https://kp.gfz-potsdam.de/app/json"; // Додано константу
+const GFZ_BASE_URL = "https://kp.gfz-potsdam.de/app/json";
 const ISGI_BASE_URL = "https://isgi.unistra.fr/api";
 
 // Логування

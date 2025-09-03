@@ -43,7 +43,7 @@ async function showCurrentConditions(ctx, userLocations, geocodingApiKey) {
                 location.longitude,
                 geocodingApiKey
             );
-            locationInfo = `📍 **Локація:** ${locationName}\n`;
+            locationInfo = `📍 <b>Локація:</b> ${locationName}\n`;
         }
 
         const updateTime = FormatUtils.formatTimestamp(kpData.timestamp);
@@ -161,7 +161,7 @@ async function handleForecast(ctx, userLocations) {
             return;
         }
 
-        let forecastMessage = "🔮 **Прогноз космічної погоди**\n\n";
+        let forecastMessage = "🔮 <b>Прогноз космічної погоди</b>\n\n";
 
         forecast.forEach((day, index) => {
             const kpMax = parseFloat(day.KpMax || 0);
@@ -170,7 +170,7 @@ async function handleForecast(ctx, userLocations) {
                 day.confidence ||
                 (index === 0 ? "Висока" : index === 1 ? "Помірна" : "Низька");
 
-            forecastMessage += `📅 **${day.DateStamp}**\n`;
+            forecastMessage += `📅 <b>${day.DateStamp}</b>\n`;
             forecastMessage += `Макс. Kp: ${day.KpMax} ${status.emoji}\n`;
             forecastMessage += `Статус: ${status.status}\n`;
             forecastMessage += `Ймовірність бур: ${FormatUtils.getStormProbability(
@@ -195,15 +195,15 @@ async function handleForecast(ctx, userLocations) {
 
             if (canSeeAurora) {
                 forecastMessage +=
-                    "🌌 **Гарні новини!** Протягом наступних днів можливі полярні сяйва у вашому регіоні!\n\n";
+                    "🌌 <b>Гарні новини!</b> Протягом наступних днів можливі полярні сяйва у вашому регіоні!\n\n";
             }
         }
 
         forecastMessage +=
-            "📊 **Джерело:** NOAA Space Weather Prediction Center\n";
+            "📊 <b>Джерело:</b> NOAA Space Weather Prediction Center\n";
         forecastMessage +=
-            "🔄 **Оновлення:** двічі на день (06:00, 18:00 UTC)\n";
-        forecastMessage += "⚡ **Деталі:** /current - поточні умови";
+            "🔄 <b>Оновлення:</b> двічі на день (06:00, 18:00 UTC)\n";
+        forecastMessage += "⚡ <b>Деталі:</b> /current - поточні умови";
 
         const keyboard = Markup.inlineKeyboard([
             [
@@ -212,7 +212,7 @@ async function handleForecast(ctx, userLocations) {
             ],
         ]);
 
-        await ctx.reply(forecastMessage, keyboard);
+        await ctx.reply(forecastMessage, { ...keyboard, parse_mode: "HTML" });
     } catch (error) {
         log(`Помилка прогнозу: ${error.message}`);
         await ctx.reply(
@@ -241,7 +241,7 @@ async function handleAurora(ctx, userLocations, geocodingApiKey) {
 
     if (!userLocation) {
         await ctx.reply(
-            "📍 **Спершу надішліть свою локацію**\n\n" +
+            "📍 <b>Спершу надішліть свою локацію</b>\n\n" +
                 "Для прогнозу полярних сяйв потрібно знати ваше розташування.",
             Markup.keyboard([
                 [Markup.button.locationRequest("📍 Поділитися локацією")],
@@ -272,40 +272,40 @@ async function handleAurora(ctx, userLocations, geocodingApiKey) {
         );
         const bestTime = getBestAuroraTime(latitude);
 
-        let auroraMessage = `🌌 **Прогноз полярних сяйв**\n\n`;
-        auroraMessage += `📍 **Локація:** ${locationName}\n`;
-        auroraMessage += `🧭 **Координати:** ${latitude.toFixed(
+        let auroraMessage = `🌌 <b>Прогноз полярних сяйв</b>\n\n`;
+        auroraMessage += `📍 <b>Локація:</b> ${locationName}\n`;
+        auroraMessage += `🧭 <b>Координати:</b> ${latitude.toFixed(
             4
         )}°, ${longitude.toFixed(4)}°\n`;
-        auroraMessage += `🧲 **Магнітна широта:** ${magneticLat.toFixed(
+        auroraMessage += `🧲 <b>Магнітна широта:</b> ${magneticLat.toFixed(
             1
         )}°\n\n`;
 
-        auroraMessage += `**🔸 Поточні умови:**\n`;
+        auroraMessage += `<b>🔸 Поточні умови:</b>\n`;
         auroraMessage += `Kp-індекс: ${kpData.kp.toFixed(1)}\n`;
         auroraMessage += `Границя авроральному овала: ${auroralBoundary.toFixed(
             1
         )}° маг. широти\n\n`;
 
         if (canSeeAurora) {
-            auroraMessage += `✅ **Полярні сяйва МОЖЛИВІ!**\n`;
+            auroraMessage += `✅ <b>Полярні сяйва МОЖЛИВІ!</b>\n`;
             auroraMessage += `🎯 Ви знаходитесь в зоні видимості\n`;
             auroraMessage += `📏 Відстань до центра овала: ${distanceToAurora.toFixed(
                 1
             )}°\n\n`;
-            auroraMessage += `**🕐 Найкращий час спостереження:**\n${bestTime}\n\n`;
-            auroraMessage += `**👀 Поради по спостереженню:**\n`;
+            auroraMessage += `<b>🕐 Найкращий час спостереження:</b>\n${bestTime}\n\n`;
+            auroraMessage += `<b>👀 Поради по спостереженню:</b>\n`;
             auroraMessage += `• Дивіться на північ\n`;
             auroraMessage += `• Уникайте світлового забруднення\n`;
             auroraMessage += `• Чекайте темного неба\n`;
             auroraMessage += `• Будьте терплячими - активність змінюється\n\n`;
         } else {
-            auroraMessage += `❌ **Полярні сяйва МАЛОЙМОВІРНІ**\n`;
+            auroraMessage += `❌ <b>Полярні сяйва МАЛОЙМОВІРНІ</b>\n`;
             auroraMessage += `📏 Ви знаходитесь на ${distanceToAurora.toFixed(
                 1
             )}° південніше зони видимості\n\n`;
             const requiredKp = Math.ceil((67 - Math.abs(magneticLat)) / 2);
-            auroraMessage += `**📈 Для видимості потрібно:**\n`;
+            auroraMessage += `<b>📈 Для видимості потрібно:</b>\n`;
             auroraMessage += `Kp ≥ ${requiredKp} (зараз ${kpData.kp.toFixed(
                 1
             )})\n\n`;
@@ -324,7 +324,7 @@ async function handleAurora(ctx, userLocations, geocodingApiKey) {
             ],
         ]);
 
-        await ctx.reply(auroraMessage, keyboard);
+        await ctx.reply(auroraMessage, { ...keyboard, parse_mode: "HTML" });
     } catch (error) {
         log(`Помилка aurora команди: ${error.message}`);
         await ctx.reply(
@@ -340,14 +340,14 @@ async function handleAlerts(ctx) {
 
         if (!alerts || alerts.length === 0) {
             await ctx.reply(
-                "✅ **Активних попереджень немає**\n\n" +
+                "✅ <b>Активних попереджень немає</b>\n\n" +
                     "Космічна погода спокійна. Ми сповістимо вас про будь-які зміни.\n\n" +
                     "🔔 Увімкніть сповіщення: /settings"
             );
             return;
         }
 
-        let alertsMessage = "⚠️ **Активні попередження:**\n\n";
+        let alertsMessage = "⚠️ <b>Активні попередження:</b>\n\n";
 
         alerts.slice(0, 5).forEach((alert, index) => {
             const type = alert.message_type || "Попередження";
@@ -355,12 +355,12 @@ async function handleAlerts(ctx) {
             const message = (alert.message || "").substring(0, 150);
 
             alertsMessage +=
-                `🚨 **${type}**\n` + `🕐 ${time}\n` + `📝 ${message}...\n\n`;
+                `🚨 <b>${type}</b>\n` + `🕐 ${time}\n` + `📝 ${message}...\n\n`;
         });
 
         alertsMessage += "📡 Джерело: NOAA Space Weather Prediction Center";
 
-        await ctx.reply(alertsMessage);
+        await ctx.reply(alertsMessage, { parse_mode: "HTML" });
     } catch (error) {
         log(`Помилка попереджень: ${error.message}`);
         await ctx.reply("❌ Помилка отримання попереджень. Спробуйте пізніше.");

@@ -80,7 +80,7 @@ async function showMainSettings(ctx, userSettings) {
             `Оберіть, що хочете налаштувати:`,
         {
             ...keyboard,
-            parse_mode: "HTML", // ВАЖЛИВО: додати parse_mode
+            parse_mode: "HTML",
         }
     );
 }
@@ -133,7 +133,7 @@ async function showKpThresholdSettings(ctx, userSettings) {
 
     await safeEditMessage(ctx, message, {
         reply_markup: { inline_keyboard: keyboard },
-        parse_mode: "HTML", // ВАЖЛИВО: додати parse_mode
+        parse_mode: "HTML",
     });
 }
 
@@ -176,7 +176,7 @@ async function showAuroraSettings(ctx, userSettings) {
 
     await safeEditMessage(ctx, message, {
         reply_markup: { inline_keyboard: keyboard },
-        parse_mode: "HTML", // ВАЖЛИВО: додати parse_mode
+        parse_mode: "HTML",
     });
 }
 
@@ -226,7 +226,7 @@ async function showDailySettings(ctx, userSettings) {
 
     await safeEditMessage(ctx, message, {
         reply_markup: { inline_keyboard: keyboard },
-        parse_mode: "HTML", // ВАЖЛИВО: додати parse_mode
+        parse_mode: "HTML",
     });
 }
 

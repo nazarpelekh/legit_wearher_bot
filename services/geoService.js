@@ -98,7 +98,7 @@ class GeoService {
         const magPoleLonRad = (magPoleLongitude * Math.PI) / 180;
 
         const cosMLat =
-            Math.sin(magPoleLatRad) * Math.sin(latRad) + // ВИПРАВЛЕНО: Math.sin замість Math.Sin
+            Math.sin(magPoleLatRad) * Math.sin(latRad) +
             Math.cos(magPoleLatRad) *
                 Math.cos(latRad) *
                 Math.cos(lonRad - magPoleLonRad);
