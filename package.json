@@ -1,0 +1,39 @@
+{
+    "name": "legit_wheaher_bot",
+    "version": "1.0.0",
+    "description": "Telegram бот для моніторингу космічної погоди з використанням NOAA API",
+    "main": "bot.js",
+    "scripts": {
+        "start": "node bot.js",
+        "dev": "nodemon bot.js",
+        "debug": "node --inspect bot.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "telegram",
+        "bot",
+        "space-weather",
+        "noaa",
+        "geomagnetic",
+        "kp-index",
+        "ukraine"
+    ],
+    "author": "Your Name",
+    "license": "MIT",
+    "dependencies": {
+        "telegraf": "^4.15.1",
+        "axios": "^1.6.7",
+        "dotenv": "^16.4.1"
+    },
+    "devDependencies": {
+        "nodemon": "^3.0.3"
+    },
+    "engines": {
+        "node": ">=16.0.0",
+        "npm": ">=7.0.0"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/yourusername/space-weather-bot.git"
+    }
+}
