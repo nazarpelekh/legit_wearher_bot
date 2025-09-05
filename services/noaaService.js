@@ -60,6 +60,10 @@ class NOAAService {
 
         log(`Отримано Kp дані: ${latest.kp_index}, час: ${timestamp}`);
 
+        log(`=== ДЕТАЛЬНА ПЕРЕВІРКА KP ===`);
+        log(`NOAA відповідь: ${JSON.stringify(noaaPromise.value)}`);
+        log(`GFZ відповідь: ${JSON.stringify(gfzPromise.value)}`);
+
         return {
             kp: parseFloat(latest.kp_index || 0),
             timestamp: timestamp,

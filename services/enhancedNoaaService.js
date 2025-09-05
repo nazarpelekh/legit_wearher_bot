@@ -146,12 +146,28 @@ class EnhancedNOAAService {
 
     // Оновити getCurrentKpIndex для використання трьох джерел
     static async getCurrentKpIndex() {
+        log("=== ПОЧАТОК getCurrentKpIndex ===");
         log("Отримання Kp-індексу з NOAA, GFZ та ISGI...");
 
         // Запускаємо запити паралельно до всіх трьох джерел
         const [noaaPromise, gfzPromise, isgiPromise] = await Promise.allSettled(
             [this.getNoaaKpIndex(), this.getGfzPotsdamKp(), this.getIsgiKp()]
         );
+
+        log("=== РЕЗУЛЬТАТИ ЗАПИТІВ ===");
+        log(`NOAA status: ${noaaPromise.status}`);
+        if (noaaPromise.status === "fulfilled") {
+            log(`NOAA value: ${JSON.stringify(noaaPromise.value)}`);
+        } else {
+            log(`NOAA error: ${noaaPromise.reason}`);
+        }
+
+        log(`GFZ status: ${gfzPromise.status}`);
+        if (gfzPromise.status === "fulfilled") {
+            log(`GFZ value: ${JSON.stringify(gfzPromise.value)}`);
+        } else {
+            log(`GFZ error: ${gfzPromise.reason}`);
+        }
 
         let availableSources = [];
 
@@ -164,6 +180,9 @@ class EnhancedNOAAService {
         if (isgiPromise.status === "fulfilled" && isgiPromise.value) {
             availableSources.push(isgiPromise.value);
         }
+
+        log(`Доступних джерел: ${availableSources.length}`);
+        log(`Доступні джерела: ${JSON.stringify(availableSources)}`);
 
         // Логування
         log(
@@ -217,6 +236,10 @@ class EnhancedNOAAService {
         log(
             `Вибрано ${selectedData.source} (${selectedData.kp}) з ${availableSources.length} доступних джерел`
         );
+        log(`=== ФІНАЛЬНИЙ РЕЗУЛЬТАТ ===`);
+        log(`Final Kp: ${selectedData.kp}`);
+        log(`Final source: ${selectedData.source}`);
+        log(`=== КІНЕЦЬ getCurrentKpIndex ===`);
 
         return selectedData;
     }
@@ -308,34 +331,127 @@ class EnhancedNOAAService {
         return null;
     }
 
-    // Парсинг текстового прогнозу NOAA
+    // Покращений парсинг текстового прогнозу NOAA
     static parseTextForecast(textData) {
         const lines = textData.split("\n");
         const forecast = [];
 
+        // Переклад місяців на повні назви
+        const monthTranslation = {
+            Jan: "Січня",
+            Feb: "Лютого",
+            Mar: "Березня",
+            Apr: "Квітня",
+            May: "Травня",
+            Jun: "Червня",
+            Jul: "Липня",
+            Aug: "Серпня",
+            Sep: "Вересня",
+            Oct: "Жовтня",
+            Nov: "Листопада",
+            Dec: "Грудня",
+        };
+
         try {
+            let foundKpSection = false;
+            let dates = [];
+
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i].trim();
-                const dateMatch = line.match(/(\d{4})\s+(\w{3})\s+(\d{1,2})/);
-                if (dateMatch) {
-                    const year = dateMatch[1];
-                    const month = dateMatch[2];
-                    const day = dateMatch[3];
 
-                    const nextLine = lines[i + 1]?.trim() || "";
-                    const kpMatch = nextLine.match(/(\d\.?\d?)/g);
+                // Шукаємо секцію з Kp прогнозом
+                if (line.includes("NOAA Kp index forecast")) {
+                    foundKpSection = true;
+                    continue;
+                }
 
-                    if (kpMatch && kpMatch.length > 0) {
-                        const maxKp = Math.max(
-                            ...kpMatch.map((k) => parseFloat(k))
-                        );
-                        forecast.push({
-                            DateStamp: `${day} ${month} ${year}`,
-                            KpMax: maxKp.toFixed(1),
-                        });
+                if (!foundKpSection) continue;
+
+                // Знаходимо рядок з датами (Sep 05, Sep 06, Sep 07)
+                if (line.includes("Sep") && line.includes("05")) {
+                    const parts = line.trim().split(/\s+/);
+                    // Шукаємо пари місяць-день
+                    for (let j = 0; j < parts.length - 1; j++) {
+                        if (parts[j] === "Sep" && parts[j + 1]) {
+                            const month =
+                                monthTranslation[parts[j]] || parts[j];
+                            const day = parts[j + 1];
+                            dates.push(`${day} ${month}`);
+                        }
                     }
+
+                    // Ініціалізуємо прогноз для кожної дати
+                    dates.forEach((date) => {
+                        forecast.push({
+                            DateStamp: date,
+                            KpMax: 0,
+                            values: [],
+                        });
+                    });
+                    continue;
+                }
+
+                // Обробляємо рядки з Kp значеннями
+                if (foundKpSection && line.includes("UT") && dates.length > 0) {
+                    const parts = line.trim().split(/\s+/);
+                    const timeRange = parts[0]; // наприклад "00-03UT"
+                    const kpValues = parts.slice(1); // Kp значення для кожного дня
+
+                    kpValues.forEach((kpStr, index) => {
+                        if (forecast[index] && kpStr) {
+                            const kpValue = parseFloat(kpStr);
+                            if (!isNaN(kpValue)) {
+                                forecast[index].values.push(kpValue);
+                                forecast[index].KpMax = Math.max(
+                                    forecast[index].KpMax,
+                                    kpValue
+                                );
+
+                                // Додаємо почасові дані з конвертацією в київський час
+                                if (!forecast[index].hourlyData) {
+                                    forecast[index].hourlyData = [];
+                                }
+
+                                // Конвертуємо UTC в київський час (+3 години)
+                                const convertToKyivTime = (utcRange) => {
+                                    const [start, end] = utcRange
+                                        .replace("UT", "")
+                                        .split("-");
+                                    const startHour =
+                                        (parseInt(start) + 3) % 24;
+                                    const endHour =
+                                        end === "00"
+                                            ? 3 % 24
+                                            : (parseInt(end) + 3) % 24;
+                                    return `${String(startHour).padStart(
+                                        2,
+                                        "0"
+                                    )}:00-${String(endHour).padStart(
+                                        2,
+                                        "0"
+                                    )}:00`;
+                                };
+
+                                forecast[index].hourlyData.push({
+                                    timeRange: convertToKyivTime(timeRange),
+                                    kp: kpValue.toFixed(1),
+                                });
+                            }
+                        }
+                    });
+                }
+
+                // Зупиняємось після останнього рядка з UT
+                if (foundKpSection && line.includes("21-00UT")) {
+                    break;
                 }
             }
+
+            // Фіналізуємо дані
+            forecast.forEach((day) => {
+                day.KpMax = day.KpMax.toFixed(1);
+                delete day.values; // Видаляємо тимчасовий масив
+            });
         } catch (error) {
             log(`Помилка парсингу прогнозу: ${error.message}`);
         }

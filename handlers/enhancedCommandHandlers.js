@@ -18,19 +18,17 @@ function getMainKeyboard() {
     ]).resize();
 }
 
-// Функція показу поточних умов з підтримкою подвійного API
+// Функція показу поточних умов з сьогоднішнім прогнозом
 async function showCurrentConditions(ctx, userLocations, geocodingApiKey) {
     const userId = ctx.from.id;
 
     try {
-        const loadingMessage = await ctx.reply(
-            "🔄 Завантажую дані з NOAA та SpaceWeatherLive..."
-        );
+        const loadingMessage = await ctx.reply("🔄 Завантажую дані з NOAA...");
 
-        const [kpData, magnetometerData, solarData] = await Promise.all([
+        // Отримуємо і поточні дані і прогноз
+        const [kpData, forecast] = await Promise.all([
             EnhancedNOAAService.getCurrentKpIndex(),
-            EnhancedNOAAService.getMagnetometerData(),
-            EnhancedNOAAService.getSolarActivity(),
+            EnhancedNOAAService.getForecast(),
         ]);
 
         const kpStatus = FormatUtils.getKpStatus(kpData.kp);
@@ -47,70 +45,46 @@ async function showCurrentConditions(ctx, userLocations, geocodingApiKey) {
         }
 
         const updateTime = FormatUtils.formatTimestamp(kpData.timestamp);
-        const currentTime = new Date().toLocaleString("uk-UA", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            timeZone: "Europe/Kiev",
-            timeZoneName: "short",
-        });
 
-        // Інформація про джерела даних
-        let sourceInfo = getSourceInfo(kpData);
+        // Знаходимо сьогоднішні дані з прогнозу
+        const today = new Date();
+        const todayDay = String(today.getDate()).padStart(2, "0");
+        const todayForecast = forecast?.find(
+            (day) => day.DateStamp && day.DateStamp.includes(todayDay)
+        );
 
-        let magneticStatus = "Стабільне";
-        if (magnetometerData && magnetometerData.length > 0) {
-            const latest = magnetometerData[magnetometerData.length - 1];
-            const hp = parseFloat(latest.Hp || 0);
-            if (hp > 50) magneticStatus = "Збурене";
-            else if (hp > 30) magneticStatus = "Помірно активне";
+        let todayHourlyData = "";
+        if (todayForecast && todayForecast.hourlyData) {
+            todayHourlyData =
+                "\n<b>🕐 Прогноз на сьогодні (київський час):</b>\n";
+            todayForecast.hourlyData.forEach((hour) => {
+                const hourKp = parseFloat(hour.kp);
+                const hourStatus = FormatUtils.getKpStatus(hourKp);
+                todayHourlyData += `${hour.timeRange}: ${hour.kp} ${hourStatus.emoji}\n`;
+            });
         }
 
-        let solarStatus = "Помірна";
-        if (solarData && solarData.length > 0) {
-            const latest = solarData[solarData.length - 1];
-            const flux = parseFloat(latest.flux || 0);
-            if (flux > 1e-5) solarStatus = "Підвищена";
-            else if (flux < 1e-7) solarStatus = "Низька";
-        }
-
-        const conditionsMessage = `🌌 <b>Поточні умови космічної погоди</b>
-🕐 Дані оновлені: ${updateTime}
-⏰ Зараз: ${currentTime}
+        const conditionsMessage = `🌌 <b>Космічна погода</b>
+🕐 Оновлено: ${updateTime}
 ${locationInfo}
-${sourceInfo}
-<b>🔸 Геомагнітна активність:</b>
+📡 <b>Джерело:</b> NOAA SWPC
+
+<b>🔸 Поточна геомагнітна активність:</b>
 Kp-індекс: ${kpData.kp.toFixed(1)} ${kpStatus.emoji}
 Статус: ${kpStatus.status}
 ${kpStatus.description}
-
-<b>🔸 Магнітне поле Землі:</b>
-Стан: ${magneticStatus}
-${
-    magnetometerData
-        ? `Дані з: ${FormatUtils.formatTimestamp(
-              magnetometerData[magnetometerData.length - 1]?.time_tag
-          )}`
-        : "Дані недоступні"
-}
-
-<b>🔸 Сонячна активність:</b>
-Рівень: ${solarStatus}
-X-ray flux: ${solarData ? "Моніториться" : "Н/Д"}
-
+${todayHourlyData}
 <b>🌍 Поради для вашого регіону:</b>
 ${getRegionalAdvice(kpStatus.level, kpData.kp, userLocations.get(userId))}`;
 
         const keyboard = Markup.inlineKeyboard([
             [
                 Markup.button.callback("🔄 Оновити", "update_current"),
-                Markup.button.callback("📈 Графік", "show_chart"),
+                Markup.button.callback("📈 Графік 9 год", "show_chart"),
             ],
             [
                 Markup.button.callback("🔮 Прогноз", "show_forecast"),
-                Markup.button.callback("🛰️ Статус API", "api_status"),
+                Markup.button.callback("🌌 Полярні сяйва", "show_aurora"),
             ],
         ]);
 
@@ -119,12 +93,8 @@ ${getRegionalAdvice(kpStatus.level, kpData.kp, userLocations.get(userId))}`;
     } catch (error) {
         log(`Помилка отримання поточних умов: ${error.message}`);
         await ctx.reply(
-            "❌ Помилка отримання даних з API.\n" +
-                "Спробуйте пізніше або перевірте інтернет-з'єднання.\n\n" +
-                "🔍 Можливі причини:\n" +
-                "• Тимчасово недоступні NOAA та SpaceWeatherLive\n" +
-                "• Проблеми з мережею\n" +
-                "• Технічні роботи на серверах"
+            "❌ Помилка отримання даних з NOAA.\n" +
+                "Спробуйте пізніше або перевірте інтернет-з'єднання."
         );
     }
 }
@@ -241,7 +211,19 @@ async function handleForecast(ctx, userLocations) {
             forecastMessage += `Ймовірність бур: ${FormatUtils.getStormProbability(
                 kpMax
             )}\n`;
-            forecastMessage += `Достовірність: ${confidence}\n\n`;
+            forecastMessage += `Достовірність: ${confidence}\n`;
+
+            // Додаємо почасовий прогноз
+            if (day.hourlyData && day.hourlyData.length > 0) {
+                forecastMessage += `\n<b>Почасовий прогноз (київський час):</b>\n`;
+                day.hourlyData.forEach((hour) => {
+                    const hourKp = parseFloat(hour.kp);
+                    const hourStatus = FormatUtils.getKpStatus(hourKp);
+                    forecastMessage += `${hour.timeRange}: ${hour.kp} ${hourStatus.emoji}\n`;
+                });
+            }
+
+            forecastMessage += `\n`;
         });
 
         // Додаємо поради про полярні сяйва
@@ -315,13 +297,28 @@ async function handleAurora(ctx, userLocations, geocodingApiKey) {
     const userId = ctx.from.id;
     const userLocation = userLocations.get(userId);
 
+    // Додаємо детальне логування для діагностики
+    log(`Перевірка локації для користувача ${userId}`);
+    log(`Розмір userLocations: ${userLocations.size}`);
+    log(`Локація знайдена: ${userLocation ? "так" : "ні"}`);
+
+    if (userLocation) {
+        log(
+            `Локація: ${userLocation.latitude}, ${userLocation.longitude}, збережена: ${userLocation.timestamp}`
+        );
+    }
+
     if (!userLocation) {
+        log(`Локація не знайдена для користувача ${userId}`);
         await ctx.reply(
             "📍 <b>Спершу надішліть свою локацію</b>\n\n" +
-                "Для прогнозу полярних сяйв потрібно знати ваше розташування.",
+                "Для прогнозу полярних сяйв потрібно знати ваше розташування.\n\n" +
+                "💡 <b>Підказка:</b> Використайте кнопку нижче або надішліть локацію через меню Telegram (📎 → Локація).",
             {
                 ...Markup.keyboard([
                     [Markup.button.locationRequest("📍 Поділитися локацією")],
+                    ["📊 Поточні дані", "🔮 Прогноз"],
+                    ["⚙️ Налаштування"],
                 ]).resize(),
                 parse_mode: "HTML",
             }
@@ -581,6 +578,7 @@ module.exports = {
     handleAurora,
     handleAlerts,
     handleApiStatus,
+    //handleFeedback,
     getBestAuroraTime,
     getRegionalAdvice,
     getSourceInfo,
