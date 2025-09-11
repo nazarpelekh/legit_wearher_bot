@@ -605,7 +605,7 @@ function getRegionalAdvice(level, kpValue, location) {
     }
 }
 
-// Обробник полярних сяйв
+// Виправлена функція обробника полярних сяйв з текстовим прогнозом
 async function handleAurora(ctx, userLocations, geocodingApiKey) {
     log(`Користувач ${ctx.from.id} запитав прогноз полярних сяйв`);
 
@@ -631,7 +631,40 @@ async function handleAurora(ctx, userLocations, geocodingApiKey) {
     }
 
     try {
-        const kpData = await EnhancedNOAAService.getCurrentKpIndex();
+        const loadingMessage = await ctx.reply(
+            "🔄 Завантажую дані полярних сяйв..."
+        );
+
+        // Отримуємо текстовий прогноз NOAA
+        const textForecast = await EnhancedNOAAService.getNoaaData(
+            "/text/3-day-geomag-forecast.txt"
+        );
+
+        let currentKpData = null;
+
+        if (textForecast) {
+            const parsedForecast = parseNoaaTextForecast(textForecast);
+            if (parsedForecast) {
+                currentKpData = getCurrentKpFromTextForecast(parsedForecast);
+                if (currentKpData) {
+                    log(
+                        `Використовується Kp з текстового прогнозу: ${currentKpData.kp}`
+                    );
+                }
+            }
+        }
+
+        // Якщо не знайшли в текстовому прогнозі, використовуємо API
+        if (!currentKpData) {
+            log("Використовуємо резервний API для Aurora Kp");
+            const apiKpData = await EnhancedNOAAService.getCurrentKpIndex();
+            currentKpData = {
+                kp: apiKpData.kp,
+                timeRange: null,
+                source: apiKpData.source,
+            };
+        }
+
         const { latitude, longitude } = userLocation;
 
         const locationName = await GeoService.getLocationName(
@@ -651,10 +684,10 @@ async function handleAurora(ctx, userLocations, geocodingApiKey) {
         const canSeeAurora = GeoService.canSeeAurora(
             latitude,
             longitude,
-            kpData.kp
+            currentKpData.kp
         );
 
-        const auroralBoundary = 67 - 2 * kpData.kp;
+        const auroralBoundary = 67 - 2 * currentKpData.kp;
         const distanceToAurora = Math.abs(
             Math.abs(magneticLat) - auroralBoundary
         );
@@ -669,22 +702,35 @@ async function handleAurora(ctx, userLocations, geocodingApiKey) {
             1
         )}°\n\n`;
 
-        const sourceEmoji = { noaa: "🛰️", "gfz-potsdam": "🇩🇪", fallback: "⚠️" };
-        const sourceName = {
-            noaa: "NOAA",
-            "gfz-potsdam": "GFZ Potsdam",
-            fallback: "За замовчуванням",
-        };
-        auroraMessage += `${
-            sourceEmoji[kpData.source] || "📡"
-        } <b>Джерело Kp:</b> ${sourceName[kpData.source] || "Невідоме"}\n`;
-
-        if (kpData.bothAvailable) {
-            auroraMessage += `🔄 <b>Резерв:</b> ${kpData.backupValue} (використано більше)\n`;
+        // Оновлене джерело інформації
+        let sourceInfo = "";
+        if (currentKpData.source === "noaa-forecast") {
+            sourceInfo = "📋 <b>Джерело Kp:</b> NOAA прогноз";
+            if (currentKpData.timeRange) {
+                sourceInfo += ` (${currentKpData.timeRange})`;
+            }
+        } else {
+            const sourceEmoji = {
+                noaa: "🛰️",
+                "gfz-potsdam": "🇩🇪",
+                fallback: "⚠️",
+            };
+            const sourceName = {
+                noaa: "NOAA API",
+                "gfz-potsdam": "GFZ Potsdam",
+                fallback: "За замовчуванням",
+            };
+            sourceInfo = `${
+                sourceEmoji[currentKpData.source] || "📡"
+            } <b>Джерело Kp:</b> ${
+                sourceName[currentKpData.source] || "Невідоме"
+            }`;
         }
 
+        auroraMessage += sourceInfo + "\n";
+
         auroraMessage += `<b>🔸 Поточні умови:</b>\n`;
-        auroraMessage += `Kp-індекс: ${kpData.kp.toFixed(1)}\n`;
+        auroraMessage += `Kp-індекс: ${currentKpData.kp.toFixed(1)}\n`;
         auroraMessage += `Границя авроральному овала: ${auroralBoundary.toFixed(
             1
         )}° маг. широти\n\n`;
@@ -708,7 +754,7 @@ async function handleAurora(ctx, userLocations, geocodingApiKey) {
             )}° південніше зони видимості\n\n`;
             const requiredKp = Math.ceil((67 - Math.abs(magneticLat)) / 2);
             auroraMessage += `<b>📈 Для видимості потрібно:</b>\n`;
-            auroraMessage += `Kp ≥ ${requiredKp} (зараз ${kpData.kp.toFixed(
+            auroraMessage += `Kp ≥ ${requiredKp} (зараз ${currentKpData.kp.toFixed(
                 1
             )})\n\n`;
         }
@@ -726,9 +772,13 @@ async function handleAurora(ctx, userLocations, geocodingApiKey) {
             ],
         ]);
 
+        await ctx.deleteMessage(loadingMessage.message_id);
         await ctx.reply(auroraMessage, { ...keyboard, parse_mode: "HTML" });
     } catch (error) {
         log(`Помилка aurora команди: ${error.message}`);
+        try {
+            await ctx.deleteMessage(loadingMessage.message_id);
+        } catch (deleteError) {}
         await ctx.reply(
             "❌ Помилка отримання даних полярних сяйв. Спробуйте пізніше."
         );
