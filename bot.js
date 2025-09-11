@@ -16,6 +16,7 @@ const {
     handleAurora,
     handleAlerts,
     handleApiStatus,
+    handleShow9HourChart, // ДОДАТИ ЦЮ ФУНКЦІЮ
 } = require("./handlers/enhancedCommandHandlers");
 
 // Конфігурація
@@ -173,7 +174,6 @@ bot.command("aurora", (ctx) =>
 bot.hears("⚠️ Попередження", handleAlerts);
 bot.command("alerts", handleAlerts);
 
-// Розширені обробники callback_query
 bot.on("callback_query", async (ctx) => {
     const action = ctx.callbackQuery.data;
 
@@ -190,7 +190,7 @@ bot.on("callback_query", async (ctx) => {
         return; // Якщо оброблено в налаштуваннях, виходимо
     }
 
-    // Решта callback обробників залишаються як є
+    // Решта callback обробників
     switch (action) {
         case "update_current":
             await ctx.answerCbQuery("🔄 Оновлюю дані з обох API...");
@@ -226,10 +226,13 @@ bot.on("callback_query", async (ctx) => {
             await handleApiStatus(ctx);
             break;
 
+        // ЗАМІНИТИ ЦЕ:
         case "show_chart":
-            await ctx.answerCbQuery(
-                "📈 Функція графіків буде додана в наступній версії!"
-            );
+            await handleShow9HourChart(ctx, userLocations);
+            break;
+
+        case "update_chart":
+            await handleShow9HourChart(ctx, userLocations);
             break;
 
         case "aurora_forecast_3day":
